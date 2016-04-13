@@ -1,0 +1,689 @@
+-- Stu ID: 496019X          Surname:Mahajan                  Firstname:Parag
+
+
+
+SET SERVEROUTPUT ON;
+
+--Place all DROP object statements below this line (tables, sequences etc)
+
+DROP SEQUENCE ERROREVENTSEQ;
+/
+DROP SEQUENCE DWPRODSEQ;
+/
+DROP SEQUENCE DWCUSTSEQ;
+/
+DROP TABLE ERROREVENT CASCADE CONSTRAINTS;
+/
+DROP TABLE DWPROD CASCADE CONSTRAINTS;
+/
+DROP TABLE DWCUST CASCADE CONSTRAINTS;
+/
+DROP TABLE DWSALE CASCADE CONSTRAINTS;
+
+/
+--Place all CREATE SEQUENCE statements below this line (separate each statement with a line containing / )
+
+CREATE SEQUENCE ERROREVENTSEQ;
+/
+CREATE SEQUENCE DWPRODSEQ;
+/
+CREATE SEQUENCE DWCUSTSEQ;
+/
+CREATE SEQUENCE DWSALESEQ;
+
+/
+--Place all CREATE TABLE statements below this line  (separate each statement with a line containing / )
+
+CREATE TABLE ErrorEvent
+(	
+	ERRORID NUMBER,
+	SOURCE_ROWID ROWID, 
+	SOURCE_TABLE VARCHAR2(30), 
+	FILTERID INTEGER,
+	DATETIME DATE, 
+	ACTION VARCHAR2(6),
+	CONSTRAINT ErrorEventACTION
+	CHECK (ACTION IN('SKIP', 'MODIFY'))
+); 
+
+/
+
+Create Table DWPROD(
+DWPRODID NUMBER,
+DWSOURCETABLE VARCHAR2(30),
+DWSOURCEID NUMBER,
+PRODNAME VARCHAR2(20),
+PRODCATNAME VARCHAR2(100),
+PRODSHIPNAME VARCHAR2(100),
+PRODMANUNAME VARCHAR2(100),
+SELLPRICE NUMBER);
+
+/
+CREATE TABLE DWCUST
+(
+	DWCUSTID NUMBER(6),
+	DWSOURCEIDBRIS NUMBER(6),
+	DWSOURCEIDMELB NUMBER(6),
+	FIRSTNAME	VARCHAR2(25),
+	SURNAME VARCHAR2(25),
+	GENDER VARCHAR2(15),
+	PHONE VARCHAR2(15),
+	POSTCODE VARCHAR2(10),
+	CITY VARCHAR2(20),
+	STATE VARCHAR2(20),
+	CUSTCATNAME VARCHAR2(100)
+);
+/
+
+CREATE TABLE DWSALE
+(	
+	DWSALEID VARCHAR2(30), 
+	DWCUSTID NUMBER, 
+	DWPRODID NUMBER, 
+	DWSOURCEIDBRIS VARCHAR2(30), 
+	DWSOURCEIDMELB VARCHAR2(30), 
+	QTY NUMBER, 
+	SALEDATE DATE, 
+	SHIPDATE DATE, 
+	SALEPRICE NUMBER
+);
+
+/
+
+CREATE TABLE GENDERSPELLING
+(
+	INVALID_VALUE VARCHAR2(9),
+	NEW_VALUE CHAR(1)
+);
+
+/
+--Place the GENDERSPELLING statements statement below this line  
+
+INSERT INTO GENDERSPELLING VALUES('MAIL','M');
+/
+INSERT INTO GENDERSPELLING VALUES('WOMAN','F');
+/
+INSERT INTO GENDERSPELLING VALUES('FEM','F');
+/
+INSERT INTO GENDERSPELLING VALUES('FEMALE','F');
+/
+INSERT INTO GENDERSPELLING VALUES('MALE','M');
+/
+INSERT INTO GENDERSPELLING VALUES('GENTLEMAN','M');
+/
+INSERT INTO GENDERSPELLING VALUES('MM','M');
+/
+INSERT INTO GENDERSPELLING VALUES('FF','F');
+/
+INSERT INTO GENDERSPELLING VALUES('FEMAIL','F');
+/
+COMMIT;
+/
+
+/
+--====================================================================================================
+--Place CREATE OR REPLACE SP_CLEAN_PRODUCT code below this line (or leave blank if not attempted)
+create or replace PROCEDURE SP_CLEAN_PRODUCT AS 
+
+BEGIN
+  insert into ErrorEvent (errorid, source_rowid, source_table, filterid, datetime, action)
+  select  erroreventseq.nextval, rowid, 'A2PRODUCT', 1, sysdate, 'MODIFY'
+  from vli.a2product p
+  where p.productcategory not in
+  (select productcategory 
+  from VLI.A2PRODCATEGORY)
+  OR p.productcategory is NULL;
+    
+END SP_CLEAN_PRODUCT;
+
+/
+--Place CREATE OR REPLACE SP_UPLOAD_PRODUCT code below this line (or leave blank if not attempted)
+create or replace PROCEDURE SP_UPLOAD_PRODUCT AS 
+BEGIN
+  insert into DWPROD (DWPRODID,DWSOURCETABLE, DWSOURCEID, PRODNAME, PRODCATNAME,
+  PRODSHIPNAME, PRODMANUNAME, SELLPRICE)
+  select DWPRODSEQ.nextval, 
+         'A2PRODUCT',
+         p.prodid,
+         p.prodname,
+         (select c.categoryname
+         from VLI.A2PRODCATEGORY c
+         where c.PRODUCTCATEGORY = p.productcategory),
+         p.shippingcode,
+         (select m.manuname
+         from VLI.A2MANUFACTURER m
+         where m.manucode = p.MANUFACTURERCODE),
+         p.SELLPRICE
+  from VLI.A2PRODUCT p
+  where rowid Not IN
+  (select source_rowid
+  from ErrorEvent
+  where action = 'MODIFY');
+    
+  insert into DWPROD (DWPRODID,DWSOURCETABLE, DWSOURCEID, PRODNAME, PRODCATNAME,
+  PRODSHIPNAME, PRODMANUNAME, SELLPRICE)
+    select DWPRODSEQ.nextval, 
+         'A2PRODUCT',
+         p.prodid,
+         p.prodname,
+         'UNKNOWN',
+         p.shippingcode,
+         (select m.manuname
+         from VLI.A2MANUFACTURER m
+         where m.manucode = p.MANUFACTURERCODE),
+         p.SELLPRICE
+  from VLI.A2PRODUCT p
+  where rowid IN
+  (select source_rowid
+  from ErrorEvent
+  where action = 'MODIFY');  
+END SP_UPLOAD_PRODUCT;
+
+
+/
+--Place code anonymous block to execute the above SPs below this line (or leave blank if not attempted)
+
+begin
+
+SP_CLEAN_PRODUCT;
+SP_UPLOAD_PRODUCT;
+COMMIT;
+
+end;
+
+
+/
+--====================================================================================================
+--Place CREATE OR REPLACE SP_CLEAN_CUST_BRIS code below this line (or leave blank if not attempted)
+create or replace procedure SP_CLEAN_CUST_BRIS as
+
+begin 
+  insert into errorevent (ERRORID,SOURCE_ROWID,SOURCE_TABLE,FILTERID,DATETIME,ACTION)
+        select ERROREVENTSEQ.NEXTVAL, SOURCEROWID ,SOURCE ,FILTERID ,SYSDATE , ACTION 
+        FROM(
+            select rowid as SOURCEROWID, 'A2CUSTBRIS' as SOURCE, 2 as FILTERID, 'MODIFY' as ACTION
+            from vli.A2CUSTBRIS
+            where custcat not in (select custcat from vli.A2CUSTCATEGORY)
+            
+            union all
+            
+            select rowid as SOURCEROWID, 'A2CUSTBRIS' as SOURCE, 3 as FILTERID, 'MODIFY' as ACTION
+            from vli.A2CUSTBRIS
+            where phone like '%-%' and phone like '% %'
+            
+            union all 
+            
+            select rowid as SOURCEROWID, 'A2CUSTBRIS' as SOURCE, 3 as FILTERID, 'MODIFY' as ACTION
+            from vli.A2CUSTBRIS
+            where length(phone) <> 10 and phone not like '%-%' and phone not like '% %'
+            
+            union all
+            
+            select rowid AS SOURCEROWID,'A2CUSTBRIS' SOURCE,4 as FILTERID,'MODIFY' as ACTION 
+            from vli.A2CUSTBRIS 
+            where GENDER not in('M','F')
+            order by FILTERID
+          );    
+end;
+
+
+/
+--Place CREATE OR REPLACE SP_UPLOAD_CUST_BRIS code below this line (or leave blank if not attempted)
+create or replace procedure SP_UPLOAD_CUSTOMER_BRIS as
+begin
+  insert into dwcust (DWCUSTID,DWSOURCEIDBRIS,FIRSTNAME,SURNAME,GENDER,PHONE,POSTCODE,CITY,STATE,CUSTCATNAME)
+	select DWCUSTSEQ.NEXTVAL,SOURCEID,FNAME,SNAME,GENDER,PHONE,POSTCODE,CITY,STATE,CATEGORYNAME 
+  from(
+      select ID as SOURCEID,FNAME,SNAME,GENDER,PHONE,POSTCODE,CITY,STATE,T.CUSTCATNAME as CATEGORYNAME
+      from vli.A2CUSTBRIS C,vli.A2CUSTCATEGORY T
+      where C.CUSTCAT = T.CUSTCATCODE and C.ROWID not in(
+                                                    select SOURCE_ROWID 
+                                                    from errorevent
+                                                    )
+                                                    
+      union all
+      
+      select ID as SOURCEID,FNAME,SNAME,GENDER,PHONE,POSTCODE,CITY,STATE,'UNKNOWN' AS CATEGORYNAME 
+      from vli.A2CUSTBRIS C 
+      where C.ROWID in( 
+                        select SOURCE_ROWID 
+                        from errorevent 
+                        where ACTION='MODIFY' and FILTERID = 2
+                      )
+                      
+     union all
+     
+     select ID SOURCEID,FNAME,SNAME,GENDER,TRIM(REPLACE(PHONE,' ','')),POSTCODE,CITY,STATE,T.CUSTCATNAME as CATEGORYNAME 
+     from vli.A2CUSTBRIS C,vli.A2CUSTCATEGORY T
+     where PHONE LIKE '% %' AND CUSTCAT=T.CUSTCATCODE AND C.ROWID IN(
+                                                                    select SOURCE_ROWID 
+                                                                    from ERROREVENT 
+                                                                    where ACTION='MODIFY' AND FILTERID = 3
+                                                                    )
+			union all
+      
+      select ID SOURCEID,FNAME,SNAME,GENDER,TRIM(REPLACE(PHONE,'-','')),POSTCODE,CITY,STATE,T.CUSTCATNAME as CATEGORYNAME  
+      from vli.A2CUSTBRIS C,vli.A2CUSTCATEGORY T 
+      where PHONE LIKE '%-%' AND CUSTCAT=T.CUSTCATCODE AND C.ROWID IN(
+                                                                      select SOURCE_ROWID 
+                                                                      from ERROREVENT 
+                                                                      where ACTION='MODIFY' AND FILTERID=3
+                                                                    )
+      
+      union all
+      
+      SELECT ID SOURCEID,FNAME,SNAME,CASE WHEN G.NEW_VALUE IS NULL THEN 'UNKNOWN' ELSE G.NEW_VALUE END,PHONE,POSTCODE,CITY,STATE,T.CUSTCATNAME as CATEGORYNAME 
+      FROM vli.A2CUSTBRIS C 
+      LEFT OUTER JOIN GENDERSPELLING G ON LOWER(C.GENDER)=LOWER(G.INVALID_VALUE),vli.A2CUSTCATEGORY T
+      WHERE CUSTCAT=T.CUSTCATCODE AND C.ROWID IN(
+                                                  SELECT SOURCE_ROWID 
+                                                  FROM ERROREVENT 
+                                                  WHERE ACTION='MODIFY' AND FILTERID=4
+                                                  )
+  );
+
+end;
+/
+--Place code that executes the above SPs below this line (or leave blank if not attempted)
+BEGIN
+SP_CLEAN_CUST_BRIS;
+SP_UPLOAD_CUSTOMER_BRIS;
+COMMIT;
+END;
+
+/
+--====================================================================================================
+--Place CREATE OR REPLACE SP_CLEAN_SALES_BRIS code below this line (or leave blank if not attempted)
+CREATE OR REPLACE PROCEDURE SP_UPLOAD_SALE_BRIS AS
+BEGIN
+  INSERT INTO DWSALE (DWSALEID,DWCUSTID,DWPRODID,DWSOURCEIDBRIS,QTY,SALEDATE,SHIPDATE,SALEPRICE)
+  SELECT DWSALESEQ.NEXTVAL,CUSTID,PRODID,DWSOURCEIDBRIS,QTY,SALEDATE,SHIPDATE,SALEPRICE 
+  FROM
+  (
+    SELECT (
+              SELECT DISTINCT DWCUSTID 
+              FROM DWCUST 
+              WHERE DWSOURCEIDBRIS=S.CUSTID AND ROWNUM=1
+            ) CUSTID
+            ,(
+                SELECT DISTINCT DWPRODID 
+                FROM DWPROD 
+                WHERE DWSOURCEID=S.PRODID AND ROWNUM=1
+             ) PRODID
+             ,SALEID DWSOURCEIDBRIS
+             ,QTY
+             ,SALEDATE
+             ,SHIPDATE
+             ,SALEPRICE 
+    FROM vli.A2SALEBRIS S 
+    WHERE ROWID NOT IN(
+                        SELECT SOURCE_ROWID 
+                        FROM ERROREVENT
+                        WHERE SOURCE_TABLE='A2SALEBRIS'
+                      )
+    UNION ALL
+    
+    SELECT (
+            SELECT DISTINCT DWCUSTID 
+            FROM DWCUST 
+            WHERE DWSOURCEIDBRIS=S.CUSTID AND ROWNUM=1
+            ) CUSTID
+            ,(
+              SELECT DISTINCT DWPRODID 
+              FROM DWPROD 
+              WHERE DWSOURCEID=S.PRODID AND ROWNUM=1
+              ) PRODID
+            ,SALEID DWSOURCEIDBRIS
+            ,QTY
+            ,SALEDATE
+            ,SALEDATE+2 SHIPDATE
+            ,SALEPRICE 
+    FROM vli.A2SALEBRIS S 
+    WHERE ROWID IN(
+                    SELECT SOURCE_ROWID 
+                    FROM ERROREVENT 
+                    WHERE SOURCE_TABLE='A2SALEBRIS' AND FILTERID='7' AND ACTION='MODIFY'
+                  )
+  )WHERE CUSTID IS NOT NULL AND PRODID IS NOT NULL;
+  
+  
+  INSERT INTO DWSALE(DWSALEID,DWCUSTID,DWPRODID,DWSOURCEIDBRIS,QTY,SALEDATE,SHIPDATE,SALEPRICE)
+  SELECT DWSALESEQ.NEXTVAL,CUSTID,PRODID,DWSOURCEIDBRIS,QTY,SALEDATE,SHIPDATE,SALEPRICE FROM
+  (
+    SELECT (
+            SELECT DISTINCT DWCUSTID 
+            FROM DWCUST 
+            WHERE DWSOURCEIDBRIS=S.CUSTID AND ROWNUM=1
+            ) CUSTID
+            ,(
+              SELECT DISTINCT DWPRODID 
+              FROM DWPROD 
+              WHERE DWSOURCEID=S.PRODID AND ROWNUM=1
+              ) PRODID
+            ,SALEID DWSOURCEIDBRIS
+            ,QTY
+            ,SALEDATE
+            ,SHIPDATE
+            ,(
+              SELECT X.SALEPRICE 
+              FROM DWSALE X 
+              WHERE X.DWPRODID=S.PRODID AND X.SALEDATE=(
+                                                          SELECT MAX(SALEDATE) 
+                                                          FROM DWSALE 
+                                                          WHERE DWPRODID=X.DWPRODID
+                                                        )
+           ) "SALEPRICE" 
+    FROM vli.A2SALEBRIS S 
+    WHERE ROWID IN(
+                    SELECT SOURCE_ROWID 
+                    FROM ERROREVENT 
+                    WHERE SOURCE_TABLE='A2SALEBRIS' AND FILTERID='8' AND ACTION='MODIFY'
+                  )
+  ) WHERE CUSTID IS NOT NULL AND PRODID IS NOT NULL;
+END;
+
+/
+--Place code that executes the above SPs below this line (or leave blank if not attempted)
+BEGIN
+	SP_CLEAN_SALES_BRIS;
+	SP_UPLOAD_SALE_BRIS;
+COMMIT;
+END;
+
+/
+--====================================================================================================
+--Place CREATE OR REPLACE SP_CLEAN_CUST_MELB code below this line (or leave blank if not attempted)
+CREATE OR REPLACE PROCEDURE SP_CLEAN_CUST_MELB AS
+  
+    BEGIN
+    
+        INSERT INTO ERROREVENT (ERRORID, SOURCE_ROWID, SOURCE_TABLE, FILTERID, DATETIME, ACTION)
+        SELECT ERROREVENTSEQ.NEXTVAL, CUST.ROWID, 'A2MELBCUST', 9, SYSDATE, 'MODIFY'
+            FROM VLI.A2CUSTMELB CUST, DWCUST
+            WHERE SURNAME = SNAME AND
+            FIRSTNAME = FNAME AND
+            DWCUST.PHONE = CUST.PHONE;  
+    END;
+
+/
+--Place CREATE OR REPLACE SP_UPLOAD_CUST_MELB code below this line (or leave blank if not attempted)
+
+CREATE OR REPLACE PROCEDURE SP_UPLOAD_CUST_MELB AS
+
+    BEGIN
+        INSERT INTO DWCUST (DWCUSTID, DWSOURCEIDMELB, FIRSTNAME, SURNAME, GENDER, PHONE, POSTCODE, CITY, STATE, CUSTCATNAME)
+            SELECT DWCUSTSEQ.NEXTVAL, ID, FNAME, SNAME, GENDER, PHONE, POSTCODE, CITY, STATE, 
+                (SELECT CUSTCATNAME
+                    FROM VLI.A2CUSTCATEGORY
+                    WHERE CUSTCAT = CUSTCATCODE) CUSTCATNAME FROM VLI.A2CUSTMELB CUST
+                WHERE CUST.ROWID NOT IN
+                (SELECT SOURCE_ROWID
+                    FROM ERROREVENT
+                    WHERE FILTERID = 9);
+        
+        UPDATE DWCUST SET DWSOURCEIDMELB =
+            (SELECT ID 
+                FROM VLI.A2CUSTMELB
+                WHERE SURNAME = SNAME AND
+                FIRSTNAME = FNAME AND
+                DWCUST.PHONE = VLI.A2CUSTMELB.PHONE)
+            WHERE DWCUSTID IN
+                (SELECT DWCUSTID
+                    FROM VLI.A2CUSTMELB
+                    WHERE SURNAME = SNAME AND
+                        FIRSTNAME = FNAME AND
+                        DWCUST.PHONE = VLI.A2CUSTMELB.PHONE AND
+                        VLI.A2CUSTMELB.ROWID IN
+                                (SELECT SOURCE_ROWID
+                                    FROM ERROREVENT
+                                    WHERE FILTERID = 9 AND
+                                    ACTION = 'MODIFY'));
+    END;        
+
+/
+--====================================================================================================
+--Place CREATE OR REPLACE SP_CLEAN_SALES_MELB code below this line (or leave blank if not attempted)
+Create or Replace Procedure SP_Clean_Sales_Melb As
+Begin
+	Insert Into ErrorEvent(ErrorID,Source_RowID,Source_Table,FilterID,DateTime,Action)
+	Select ErrorEventSeq.NextVal,sm.RowId,'A2SaleMelb',10,SysDate,'SKIP'
+	From VLI.A2SaleMelb sm
+	Where sm.ProdID not in (
+							Select distinct DWSourceID 
+							From DWProd
+							Where DWSourceTable='A2Product'
+							);
+
+	Insert Into ErrorEvent(ErrorID,Source_RowID,Source_Table,FilterID,DateTime,Action)
+	Select ErrorEventSeq.NextVal,sm.RowId,'A2SaleMelb',11,SysDate,'SKIP'
+	From VLI.A2SaleMelb sm
+	Where sm.CustID not in (
+							Select distinct DWSourceIDMelb 
+							From DWCust
+							);
+
+	Insert Into ErrorEvent(ErrorID,Source_RowID,Source_Table,FilterID,DateTime,Action)
+	Select ErrorEventSeq.NextVal,sm.RowId,'A2SaleMelb',12,SysDate,'MODIFY'
+	From VLI.A2SaleMelb sm
+	Where sm.ShipDate<sm.SaleDate;
+
+	Insert Into ErrorEvent(ErrorID,Source_RowID,Source_Table,FilterID,DateTime,Action)
+	Select ErrorEventSeq.NextVal,sm.RowId,'A2SaleMelb',13,SysDate,'MODIFY'
+	From VLI.A2SaleMelb sm
+	Where sm.TotalPrice is null;
+
+End;
+
+/
+--Place CREATE OR REPLACE SP_UPLOAD_SALES_MELB code below this line (or leave blank if not attempted)
+Create or Replace Procedure SP_Upload_Sale_Melb As
+	Begin
+	Insert Into DWSale(DWSaleID,DWCustID,DWProdID,DWSourceIDMelb,Qty,SaleDate,ShipDate,SalePrice)
+	Select DWSaleSeq.NextVal,c.DWCustID,p.DWProdID,smel.SaleID,smel.Qty,smel.SaleDate,smel.ShipDate,smel.TotalPrice
+	From VLI.A2SaleMelb smel
+	Inner Join DWCust c On smel.CustID = c.DWSourceIDBris
+	Inner Join DWProd p on smel.ProdID = p.DWSourceID
+	Where smel.RowID not in (
+							Select Source_RowID 
+							From ErrorEvent 
+							Where Source_Table = 'A2SaleMelb'
+							);
+
+	Insert Into DWSale(DWSaleID,DWCustID,DWProdID,DWSourceIDMelb,Qty,SaleDate,ShipDate,SalePrice)
+	Select DWSaleSeq.NextVal,c.DWCustID,p.DWProdID,smel.SaleID,smel.Qty,smel.SaleDate,smel.SaleDate+2,smel.TotalPrice
+	From VLI.A2SaleMelb smel
+	Inner Join DWCust c On smel.CustID = c.DWSourceIDBris
+	Inner Join DWProd p On smel.ProdID = p.DWSourceID
+	Where smel.RowID in (
+						Select Source_RowID 
+						From ErrorEvent 
+						Where Source_Table = 'A2SaleMelb' and FilterID=12
+						);
+
+End;
+
+/
+--Place code that executes the above SPs below this line (or leave blank if not attempted)
+Begin
+	SP_Clean_Sales_Melb;
+	SP_Upload_Sale_Melb;
+	commit;
+End;
+
+/
+--====================================================================================================
+--QUERY 1
+--Modify this query so that it matches the table names and column names used in your database
+PROMPT ***** QUERY 1 Filter count *****
+SELECT   FILTERNO, ACTION, COUNT(*)
+FROM     ERROREVENT
+GROUP BY FILTERNO, ACTION
+ORDER BY 1,2;
+
+/
+--QUERY  2
+--This query counts the number of rows in each of the DW% tables
+PROMPT ***** QUERY 2 DW Row Count *****
+SELECT TABLE_NAME,
+   TO_NUMBER(EXTRACTVALUE(XMLTYPE(DBMS_XMLGEN.GETXML('SELECT COUNT(*) C FROM '
+   || TABLE_NAME)),'/ROWSET/ROW/C')) ROW_COUNT
+   FROM USER_TABLES
+   WHERE TABLE_NAME IN (SELECT TABLE_NAME FROM USER_TABLES
+WHERE TABLE_NAME  LIKE 'A2%')
+ORDER BY 1;
+
+/
+--QUERY  3
+--Place SQL Query that lists total sales for each weekday 
+--below this line (or leave blank if not attempted)
+PROMPT ***** QUERY 3 Weekday sales *****
+select to_char(SALEDATE,'Day') as "Weekday", SUM(QTY * SELLPRICE) as "Total Sales"
+from DWSALE 
+group by to_char(SALEDATE,'Day');
+
+/
+--QUERY  4
+--Place SQL Query that lists each customer category total sales 
+--below this line (or leave blank if not attempted
+PROMPT ***** QUERY 4 Customer Category Sales*****
+select c.custcatname as "Customer Category", SUM(QTY * SELLPRICE) as "Total Sales"
+from DWCUST c
+inner join DWSALE s
+on c.DWCUSTID = s.DWCUSTID
+group by c.custcatname
+order by SUM(QTY * SELLPRICE) DESC;
+/
+--QUERY  5
+--Place SQL Query that lists sales for each product manufacturer
+--below this line (or leave blank if not attempted)
+PROMPT ***** QUERY 5 Sales by Manufacturer*****
+-total sales
+select p.PRODMANUNAME as "Product Manufacturer", SUM(s.QTY * s.SELLPRICE) as "Total Sales"
+from DWPROD p
+inner join DWSALE s
+on p.DWPRODID = s.DWPRODID
+group by p.PRODMANUNAME
+order by SUM(s.QTY * s.SELLPRICE) DESC;
+/
+--total qty
+select p.PRODMANUNAME as "Product Manufacturer", SUM(s.QTY) as "Total Qty Sold"
+from DWPROD p
+inner join DWSALE s
+on p.DWPRODID = s.DWPRODID
+group by p.PRODMANUNAME
+order by SUM(s.QTY) DESC;
+/
+
+
+--QUERY  6
+--Place SQL Query that lists top 10 customers 
+--below this line (or leave blank if not attempted)
+PROMPT ***** QUERY 6 Top 10 Customers *****
+select * from (
+	select c.DWCUSTID as "Customer ID", c.FIRSTNAME, c.SURNAME, (QTY * SELLPRICE) as "Total Sales"
+	from DWCUST c
+	inner join DWSALE s
+	on c.DWCUSTID = s.DWCUSTID
+	where (QTY * SELLPRICE) is not null
+	order by (QTY * SELLPRICE) DESC
+	)
+where rownum<=10;
+/
+
+--QUERY  7
+--Place SQL Query that lists bottom 10 products
+--below this line (or leave blank if not attempted)
+PROMPT ***** QUERY 7 Bottom 10 products *****
+SELECT "DWPRODID" ,"PRODNAME","TOTAL SALES" FROM
+(
+	SELECT P.DWPRODID "DWPRODID",P.PRODNAME "PRODNAME",SUM(QTY*SALEPRICE) "TOTAL SALES",RANK() OVER(ORDER BY(SUM(QTY*SALEPRICE))) AS "SALE_RANK" 
+	FROM DWSALE S,DWPROD P 
+	WHERE S.DWPRODID=P.DWPRODID 
+	GROUP BY P.DWPRODID,P.PRODNAME
+)WHERE ROWNUM<=10;
+/
+
+--QUERY  8
+/--Place SQL Query that lists top City in each State
+--below this line (or leave blank if not attempted)
+PROMPT ***** QUERY 8 Top City in each State list *****
+WITH ORDERED AS
+(
+SELECT c.STATE, c.CITY, (s.QTY * s.SELLPRICE) as TotalSales,
+      ROW_NUMBER() OVER (PARTITION BY c.STATE ORDER BY (s.QTY * s.SELLPRICE) DESC) AS rn
+  from DWCUST c
+  inner join DWSALE s
+  on c.DWCUSTID = s.DWCUSTID
+  WHERE (s.QTY * s.SELLPRICE) is not null
+  order by (s.QTY * s.SELLPRICE)
+  )
+  SELECT 
+  STATE, CITY, TotalSales
+  FROM ORDERED
+  WHERE rn = 1;
+/
+
+--QUERY 9
+--List each product manufacturer and the total qty sold in the first quarter of 2013
+--The list must be in descending order for TOTAL SALES. 
+PROMPT ***** QUERY 9 product manufacturer and the total qty sold in Q1-2013 *****
+
+select to_char(s.SALEDATE,'YYYY-Q') as "Quarter", p.PRODMANUNAME as "Product Manufacturer", SUM(s.QTY) as "2013 Q1 Qty Sales"
+from DWPROD p
+inner join DWSALE s
+on p.DWPRODID = s.DWPRODID
+group by to_char(s.SALEDATE,'YYYY-Q'), p.PRODMANUNAME
+HAVING to_char(s.SALEDATE,'YYYY-Q') = '2013-1'
+order by to_char(s.SALEDATE,'YYYY-Q'), SUM(s.QTY) desc;
+/
+
+--QUERY 10
+--Which is the busiest day of the week (with the highest sales figure) in the second quarter of 2013? 
+--The output must display the column heading ‘Busiest Day’ 
+
+PROMPT ***** QUERY 10 busiest day of the week in Q2-2013 *****
+select * 
+from(
+		select to_char(SALEDATE,'YYYY-Q') as "Quarter", to_char(SALEDATE,'Day') as "Busiest Day", SUM(QTY * SELLPRICE) as "Total Sales"
+		from DWSALE 
+		group by to_char(SALEDATE,'YYYY-Q'), to_char(SALEDATE,'Day')
+		HAVING to_char(SALEDATE,'YYYY-Q') = '2013-2'
+		order by to_char(SALEDATE,'Day'), SUM(QTY * SELLPRICE) desc
+	) 
+where rownum<=1;
+/
+
+--QUERY 11
+--What is the bestselling product in the first quarter of 2013 based on total quantity sold?
+
+PROMPT ***** QUERY 11 bestselling product in Q1-2013 based on total qty sold *****
+	select * 
+	from(
+			select to_char(s.SALEDATE,'YYYY-Q') as "Quarter", p.DWPRODID as "Product Id", p.PRODNAME, SUM(s.QTY) as "Total Qty Sold"
+			from DWSALE s
+			inner join DWPROD p
+			on s.DWPRODID = p.DWPRODID
+			group by to_char(s.SALEDATE,'YYYY-Q'), p.DWPRODID, p.PRODNAME
+			HAVING to_char(s.SALEDATE,'YYYY-Q') = '2013-1'
+			order by SUM(s.QTY) desc
+		) 
+	where rownum<=1;
+/
+
+--QUERY 12
+--List the top 10 products based on total sales (qty*saleprice)
+--The list must be in descending order for TOTAL SALES. 
+
+PROMPT ***** QUERY 12 op 10 products based on total sales (qty*saleprice) *****
+select * from(
+	select to_char(s.SALEDATE,'YYYY-Q') as "Quarter", p.DWPRODID as "Product Id", p.PRODNAME, SUM(s.QTY * s.SELLPRICE) as "Total Sales"
+	from DWSALE s
+	inner join DWPROD p
+	on s.DWPRODID = p.DWPRODID
+	group by to_char(s.SALEDATE,'YYYY-Q'), p.DWPRODID, p.PRODNAME
+	HAVING to_char(s.SALEDATE,'YYYY-Q') = '2013-1'
+	order by SUM(s.QTY * s.SELLPRICE) desc
+) where rownum<=10;
+/
+
+

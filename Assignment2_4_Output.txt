@@ -1,0 +1,208 @@
+sequence ERROREVENTSEQ dropped.
+sequence DWPRODSEQ dropped.
+sequence DWCUSTSEQ dropped.
+sequence DWSALESEQ dropped.
+table ERROREVENT dropped.
+table DWPROD dropped.
+table DWCUST dropped.
+table DWSALE dropped.
+table GENDERSPELLING dropped.
+sequence ERROREVENTSEQ created.
+sequence DWPRODSEQ created.
+sequence DWCUSTSEQ created.
+sequence DWSALESEQ created.
+table ERROREVENT created.
+table DWPROD created.
+table DWCUST created.
+table DWSALE created.
+table GENDERSPELLING created.
+1 rows inserted.
+1 rows inserted.
+1 rows inserted.
+1 rows inserted.
+1 rows inserted.
+1 rows inserted.
+1 rows inserted.
+1 rows inserted.
+1 rows inserted.
+committed.
+PROCEDURE SP_CLEAN_PRODUCT compiled
+PROCEDURE SP_UPLOAD_PRODUCT compiled
+anonymous block completed
+PROCEDURE SP_CLEAN_CUST_BRIS compiled
+PROCEDURE SP_UPLOAD_CUSTOMER_BRIS compiled
+anonymous block completed
+PROCEDURE SP_CLEAN_SALES_BRIS compiled
+PROCEDURE SP_UPLOAD_SALE_BRIS compiled
+anonymous block completed
+PROCEDURE SP_CLEAN_CUST_MELB compiled
+PROCEDURE SP_UPLOAD_CUST_MELB compiled
+anonymous block completed
+PROCEDURE SP_CLEAN_SALES_MELB compiled
+PROCEDURE SP_UPLOAD_SALE_MELB compiled
+anonymous block completed
+***** QUERY 1 Filter count *****
+  FILTERID ACTION   COUNT(*)
+---------- ------ ----------
+         1 MODIFY         10 
+         3 MODIFY          6 
+         4 MODIFY         22 
+         5 SKIP           26 
+         6 SKIP           47 
+         7 MODIFY         11 
+         8 MODIFY        467 
+         9 MODIFY         22 
+        10 SKIP        25203 
+        12 MODIFY         13 
+        13 MODIFY        531 
+
+ 11 rows selected 
+
+***** QUERY 2 DW Row Count *****
+TABLE_NAME                      ROW_COUNT
+------------------------------ ----------
+DWCUST                              12224 
+DWPROD                                100 
+DWSALE                              20834 
+
+***** QUERY 3 Weekday sales *****
+Weekday   Total Sales
+--------- -----------
+Sunday        1060965 
+Monday        1053110 
+Thursday      1095441 
+Friday        1130138 
+Wednesday     1115728 
+Tuesday       1121718 
+Saturday      1007234 
+
+ 7 rows selected 
+
+***** QUERY 4 Customer Category Sales*****
+Customer Category                                                                                    Total Sales
+---------------------------------------------------------------------------------------------------- -----------
+RETAIL                                                                                                   1584673 
+CORPORATE                                                                                                1580947 
+NOTFORPROFIT                                                                                             1507592 
+INDIVIDUAL                                                                                               1496117 
+OTHER                                                                                                    1415005 
+
+***** QUERY 5 Sales by Manufacturer*****
+Product Manufacturer                                                                                 Total Sales
+---------------------------------------------------------------------------------------------------- -----------
+A1 Plus Goods                                                                                            2265601 
+Creative Wares                                                                                           1485072 
+Snap Optix & Technology                                                                                   991444 
+MasterSpec Innovators                                                                                     608280 
+Island Group                                                                                              581775 
+InnerGroup International                                                                                  546025 
+Eagle Products                                                                                            421797 
+Great Aussie Building Products                                                                            298745 
+Enriched Concepts                                                                                         258585 
+Lum-Tech                                                                                                  127010 
+
+ 10 rows selected 
+
+Product Manufacturer                                                                                 Total Qty Sold
+---------------------------------------------------------------------------------------------------- --------------
+A1 Plus Goods                                                                                                  7298 
+Creative Wares                                                                                                 3934 
+Eagle Products                                                                                                 3587 
+InnerGroup International                                                                                       3033 
+Snap Optix & Technology                                                                                        2958 
+Great Aussie Building Products                                                                                 2830 
+MasterSpec Innovators                                                                                          2534 
+Island Group                                                                                                   2427 
+Enriched Concepts                                                                                              2128 
+Lum-Tech                                                                                                        741 
+
+ 10 rows selected 
+
+***** QUERY 6 Top 10 Customers *****
+Customer ID FIRSTNAME                 SURNAME                   Total Sales
+----------- ------------------------- ------------------------- -----------
+       1619 Di                        Butler-Cole                     15500 
+       2055 Carol                     Ortega                          15500 
+       3277 Michael                   Nevarez                         15500 
+       3641 Allan                     Mcguirt                         15500 
+        160 Melissa                   Greenwood                       15500 
+       3842 Chris                     Ramakumar                       15500 
+       4107 Thomas                    Gerber                          15500 
+       1519 Rona                      Nelson                          15500 
+       3655 Chris                     Wu                              15500 
+       1083 Teresa                    Kenworthy                       15500 
+
+ 10 rows selected 
+
+***** QUERY 7 Bottom 10 products *****
+  DWPRODID PRODNAME             TOTAL SALES
+---------- -------------------- -----------
+        74 Prod 39                     1206 
+        28 Prod 69                     1248 
+        59 Prod 7                      2070 
+         6 Prod 87                     2100 
+         7 Prod 95                     2848 
+        43 Prod 10                     3504 
+        77 Prod 4                      3640 
+        18 Prod 97                     3860 
+        64 Prod 77                     5050 
+        89 Prod 21                     5475 
+
+ 10 rows selected 
+
+***** QUERY 8 Top City in each State list *****
+STATE                                              CITY                                               TOTALSALES
+-------------------------------------------------- -------------------------------------------------- ----------
+NT                                                 RENNER SPRINGS                                           6080 
+WA                                                 KINROSS                                                 13500 
+TAS                                                TOLMANS HILL                                            15500 
+SA                                                 GLENELG SOUTH                                           15500 
+QLD                                                POINT LOOKOUT                                           15500 
+NSW                                                BANKSTOWN NORTH                                         15500 
+ACT                                                FISHER                                                  15500 
+VIC                                                WALLINGTON                                              15500 
+
+ 8 rows selected 
+
+***** QUERY 9 product manufacturer and the total qty sold in Q1-2013 *****
+Quarter Product Manufacturer                                                                                 2013 Q1 Qty Sales
+------- ---------------------------------------------------------------------------------------------------- -----------------
+2013-1  A1 Plus Goods                                                                                                     1831 
+2013-1  Eagle Products                                                                                                     925 
+2013-1  Creative Wares                                                                                                     917 
+2013-1  Snap Optix & Technology                                                                                            738 
+2013-1  InnerGroup International                                                                                           699 
+2013-1  Great Aussie Building Products                                                                                     698 
+2013-1  MasterSpec Innovators                                                                                              604 
+2013-1  Island Group                                                                                                       564 
+2013-1  Enriched Concepts                                                                                                  538 
+2013-1  Lum-Tech                                                                                                           193 
+
+ 10 rows selected 
+
+***** QUERY 10 busiest day of the week in Q2-2013 *****
+Quarter Busiest Day Total Sales
+------- ----------- -----------
+2013-2  Friday           346630 
+
+***** QUERY 11 bestselling product in Q1-2013 based on total qty sold *****
+Quarter Product Id PRODNAME             Total Qty Sold
+------- ---------- -------------------- --------------
+2013-1           5 Prod 65                         334 
+
+***** QUERY 12 op 10 products based on total sales (qty*saleprice) *****
+Quarter Product Id PRODNAME             Total Sales
+------- ---------- -------------------- -----------
+2013-1           5 Prod 65                   306990 
+2013-1          63 Prod 2                    221340 
+2013-1          83 Prod 35                   205960 
+2013-1          58 Prod 52                    77490 
+2013-1          82 Prod 47                    75720 
+2013-1          47 Prod 25                    75195 
+2013-1          37 Prod 94                    70040 
+2013-1          39 Prod 42                    52920 
+2013-1           1 Prod 80                    48580 
+2013-1          92 Prod 5                     48365 
+
+ 10 rows selected 
+
